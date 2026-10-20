@@ -19,6 +19,7 @@ import {
   Brain,
   Cpu,
   Database,
+  Pin,
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
@@ -50,6 +51,7 @@ const MIN_INTERVAL_HOURS = 0.1;
 const AUTO_SENTINEL = 0;
 const MAX_AUX_TIMEOUT_S = 3600;
 const MAX_AUX_TOKENS = 65536;
+type ManualDocumentPolicy = "auto" | "user" | "agent";
 
 export default function MemorySettings({ agentId }: Props) {
   const { t } = useTranslation();
@@ -57,6 +59,8 @@ export default function MemorySettings({ agentId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [documentPolicy, setDocumentPolicy] =
+    useState<ManualDocumentPolicy>("auto");
   const [mode, setMode] = useState<ExtractTriggerMode>("idle");
   const [idleMinutes, setIdleMinutes] = useState(5);
   const [intervalHours, setIntervalHours] = useState(6);
@@ -97,6 +101,12 @@ export default function MemorySettings({ agentId }: Props) {
 
   const applyConfig = useCallback((cfg: ExtractConfig) => {
     setMemoryEnabled(cfg.memory_enabled ?? true);
+    setDocumentPolicy(
+      cfg.manual_document_policy === "user" ||
+        cfg.manual_document_policy === "agent"
+        ? cfg.manual_document_policy
+        : "auto",
+    );
     setMode(cfg.extract_trigger_mode);
     setAuxModel(defaultModelToForm(cfg.aux_model));
     setSupportedCallOptions(cfg.supported_call_options);
@@ -184,6 +194,7 @@ export default function MemorySettings({ agentId }: Props) {
     try {
       const cfg = await memoryDashboardApi.putExtractConfig(agentId, {
         memory_enabled: memoryEnabled,
+        manual_document_policy: documentPolicy,
         extract_on_session_end: true,
         extract_trigger_mode: mode,
         extract_idle_seconds: Math.round(
@@ -281,6 +292,69 @@ export default function MemorySettings({ agentId }: Props) {
             )}
           />
         ) : null}
+      </Card>
+
+      <Card className={styles.settingCard}>
+        <div className={styles.sectionHeading}>
+          <span className={styles.settingIcon}>
+            <Pin size={18} />
+          </span>
+          <div>
+            <div className={styles.settingTitle}>
+              {t("memory.settings.documentsTitle", "档案与强记忆")}
+            </div>
+            <div className={styles.settingDescription}>
+              {t(
+                "memory.settings.documentsDescription",
+                "决定 Agent 能不能修改 USER.md 和 MEMORY.md。",
+              )}
+            </div>
+          </div>
+        </div>
+        <fieldset className={styles.strategyFields}>
+          <Radio.Group
+            value={documentPolicy}
+            onChange={(event) =>
+              setDocumentPolicy(event.target.value as ManualDocumentPolicy)
+            }
+          >
+            <Space direction="vertical" size={14}>
+              <Radio value="auto">
+                <span className={styles.radioTitle}>
+                  {t("memory.settings.documentsAuto", "跟随记忆开关")}
+                </span>
+                <Typography.Text type="secondary" className={styles.radioHint}>
+                  {t(
+                    "memory.settings.documentsAutoHint",
+                    "开启时只读，关闭时 Agent 可以直接修改",
+                  )}
+                </Typography.Text>
+              </Radio>
+              <Radio value="user">
+                <span className={styles.radioTitle}>
+                  {t("memory.settings.documentsUser", "由我维护")}
+                </span>
+                <Typography.Text type="secondary" className={styles.radioHint}>
+                  {t(
+                    "memory.settings.documentsUserHint",
+                    "Agent 不修改这两份文档，即使记忆已关闭",
+                  )}
+                </Typography.Text>
+              </Radio>
+              <Radio value="agent">
+                <span className={styles.radioTitle}>
+                  {t("memory.settings.documentsAgent", "允许 Agent 修改")}
+                </span>
+                <Typography.Text type="secondary" className={styles.radioHint}>
+                  {t(
+                    "memory.settings.documentsAgentHint",
+                    "即使记忆已开启也可以修改。说「记住」仍写入普通记忆",
+                  )}
+                </Typography.Text>
+              </Radio>
+            </Space>
+          </Radio.Group>
+        </fieldset>
       </Card>
 
       <Card

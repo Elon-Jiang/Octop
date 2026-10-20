@@ -57,6 +57,9 @@ router = APIRouter(dependencies=[Depends(require_permission("memory"))])
 # back when constructing the agent.
 _EXTRACT_DEFAULTS: dict[str, Any] = {
     "memory_enabled": True,
+    # auto follows memory_enabled; user keeps USER.md/MEMORY.md owner-edited;
+    # agent may edit those files even while structured memory is on.
+    "manual_document_policy": "auto",
     "extract_on_session_end": True,
     "extract_trigger_mode": "idle",
     "extract_idle_seconds": 300.0,
@@ -193,6 +196,10 @@ class _ExtractConfigBody(BaseModel):
     """
 
     memory_enabled: bool | None = None
+    manual_document_policy: str | None = Field(
+        default=None,
+        description="auto follows memory_enabled; user keeps the files owner-edited; agent may edit them",
+    )
     extract_on_session_end: bool | None = None
     extract_trigger_mode: str | None = Field(default=None, description="idle / interval")
     extract_idle_seconds: float | None = Field(
@@ -924,6 +931,14 @@ async def put_extract_config(
 
     if "memory_enabled" in patch:
         merged["memory_enabled"] = bool(patch["memory_enabled"])
+    if "manual_document_policy" in patch:
+        policy = str(patch["manual_document_policy"])
+        if policy not in ("auto", "user", "agent"):
+            raise HTTPException(
+                status_code=400,
+                detail="manual_document_policy must be 'auto', 'user', or 'agent'",
+            )
+        merged["manual_document_policy"] = policy
     if "extract_on_session_end" in patch:
         merged["extract_on_session_end"] = bool(patch["extract_on_session_end"])
     if "extract_trigger_mode" in patch:

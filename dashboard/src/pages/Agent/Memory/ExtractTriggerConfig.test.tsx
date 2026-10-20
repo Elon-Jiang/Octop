@@ -74,6 +74,7 @@ describe("<MemorySettings />", () => {
     await waitFor(() => {
       expect(api.putExtractConfig).toHaveBeenCalledWith("ZYWZTD", {
         memory_enabled: true,
+        manual_document_policy: "auto",
         extract_on_session_end: true,
         extract_trigger_mode: "idle",
         extract_idle_seconds: 300,
@@ -88,6 +89,25 @@ describe("<MemorySettings />", () => {
         extract_extra_body: {},
       });
     });
+  });
+
+  it("saves an owner-maintained document override", async () => {
+    api.getExtractConfig.mockResolvedValue(idleConfig);
+    api.putExtractConfig.mockResolvedValue({
+      ...idleConfig,
+      manual_document_policy: "user",
+    });
+    const user = userEvent.setup();
+    render(<MemorySettings agentId="ZYWZTD" />);
+    await screen.findByText("档案与强记忆");
+    await user.click(screen.getByRole("radio", { name: /由我维护/ }));
+    await user.click(screen.getByRole("button", { name: "保存设置" }));
+    await waitFor(() =>
+      expect(api.putExtractConfig).toHaveBeenCalledWith(
+        "ZYWZTD",
+        expect.objectContaining({ manual_document_policy: "user" }),
+      ),
+    );
   });
 
   it("saves a pinned extraction model", async () => {

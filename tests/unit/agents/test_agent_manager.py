@@ -657,6 +657,19 @@ def test_memory_extract_settings_supports_legacy_harness(caplog: pytest.LogCaptu
     assert "lacks interval memory extraction" in caplog.text
 
 
+def test_memory_extract_settings_forwards_manual_document_policy() -> None:
+    settings = _memory_extract_settings(
+        {"memory": {"manual_document_policy": "user", "memory_enabled": False}},
+        supported_fields=frozenset({"memory_enabled", "manual_document_policy"}),
+    )
+    assert settings["manual_document_policy"] == "user"
+    ignored = _memory_extract_settings(
+        {"memory": {"manual_document_policy": "custom"}},
+        supported_fields=frozenset({"manual_document_policy"}),
+    )
+    assert "manual_document_policy" not in ignored
+
+
 def test_memory_extract_settings_forwards_aux_model_to_both_tiers() -> None:
     settings = _memory_extract_settings(
         {"memory": {"aux_model": "hai/MiniMax-M2.7"}},

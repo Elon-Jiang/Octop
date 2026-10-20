@@ -240,6 +240,12 @@ def _memory_extract_settings(
     out: dict[str, Any] = _memory_aux_model_settings(mem, supported_fields, is_ref_usable)
     if "memory_enabled" in supported_fields and isinstance(mem.get("memory_enabled"), bool):
         out["memory_enabled"] = mem["memory_enabled"]
+    document_policy = mem.get("manual_document_policy")
+    if (
+        document_policy in ("auto", "user", "agent")
+        and "manual_document_policy" in supported_fields
+    ):
+        out["manual_document_policy"] = document_policy
     if "memory_extract_on_session_end" in supported_fields and isinstance(
         mem.get("extract_on_session_end"), bool
     ):
