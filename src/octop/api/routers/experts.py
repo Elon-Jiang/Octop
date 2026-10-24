@@ -851,6 +851,32 @@ async def create_agent_from_expert(
     if expert is None:
         raise OctopError(ErrorCode.NOT_FOUND, f"expert {expert_id!r} not found")
     assert server.app_runtime is not None
+    # 幂等：同一用户重复「从专家创建」时复用已有 agent。
+    # 前端在授权后会自动就绪专家，刷新或重试都会再次调用本接口；
+    # 非幂等会先撞名报 409（AGENT_NAME_TAKEN），面板随即显示“专家未就绪”，
+    # 而 agent 其实一直可用。显式传 agent_id 视为要新建独立副本，跳过复用。
+    if not body.agent_id:
+        for existing_row in server.app_runtime.agent_registry.list_agents(user.id):
+            if (existing_row.template_name or "") != expert_id:
+                continue
+            return {
+                "id": existing_row.id,
+                "agent_id": existing_row.agent_id,
+                "user_id": existing_row.user_id,
+                "name": existing_row.name,
+                "description": existing_row.description,
+                "default_model": existing_row.default_model,
+                "state": existing_row.last_state or "unknown",
+                "expert_id": expert_id,
+                "icon_name": existing_row.icon_name or expert.summary.icon_name,
+                "icon_url": existing_row.icon_url,
+                "color": existing_row.color or expert.summary.color,
+                "bootstrap_pending": not server.app_runtime.agent_registry.is_bootstrapped(
+                    existing_row.agent_id
+                ),
+                "reused": True,
+            }
+
     assert_user_backend_root_dirs(
         user,
         body.backend,

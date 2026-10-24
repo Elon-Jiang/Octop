@@ -122,6 +122,19 @@ async def list_threads(
     awaiting_ids = server.app_runtime.gateway.processor.hitl_coordinator.store.pending_thread_ids(
         agent_id=agent_id, user_id=effective_uid
     )
+    # title / last_active 只能说明「建过会话」，不能说明「有内容」：
+    # 有些 thread 有标题但从未落过消息，点开就是空白。这里补一次真实计数。
+    message_repo = server.services.thread_message_repo
+    ids_with_messages = message_repo.threads_with_messages([r.thread_id for r in rows])
+
+    def _has_messages(row: Any) -> bool:
+        if not thread_row_has_messages(row):
+            return False
+        if row.thread_id in ids_with_messages:
+            return True
+        # 投影还没 ready 时消息可能仍在 checkpoint，不能断言为空
+        return message_repo.projection_status(row.thread_id) != "ready"
+
     return [
         {
             "thread_id": r.thread_id,
@@ -131,7 +144,7 @@ async def list_threads(
             "last_active": r.last_active,
             "created_at": r.created_at,
             "is_active": r.thread_id == bound,
-            "has_messages": thread_row_has_messages(r),
+            "has_messages": _has_messages(r),
             "pinned": r.pinned,
             "model_ref": r.model_ref,
             "reasoning_mode": r.reasoning_mode,
